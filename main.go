@@ -13,13 +13,14 @@ import (
 	_ "github.com/Suika99/AsoulBot/plugins/bilibili"
 	_ "github.com/Suika99/AsoulBot/plugins/covid"
 	_ "github.com/Suika99/AsoulBot/plugins/emojimix"
+	_ "github.com/Suika99/AsoulBot/plugins/setu"
 
+	// -----------------------以下为内置依赖，勿动------------------------ //
 	"github.com/FloatTech/zbputils/process"
 	"github.com/sirupsen/logrus"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/driver"
 	"github.com/wdvxdr1123/ZeroBot/message"
-	// -----------------------以上为内置依赖，勿动------------------------ //
 )
 
 var (
@@ -82,7 +83,7 @@ func main() {
 			CommandPrefix: *prefix,
 			// SuperUsers 某些功能需要主人权限，可通过以下两种方式修改
 			// SuperUsers: []string{"12345678", "87654321"}, // 通过代码写死的方式添加主人账号
-			SuperUsers: []string{"290760339"}, // 通过命令行参数的方式添加主人账号
+			SuperUsers: []int64{290760339}, // 通过命令行参数的方式添加主人账号
 			Driver:     []zero.Driver{driver.NewWebSocketClient(*url, *token)},
 		},
 		process.GlobalInitMutex.Unlock,

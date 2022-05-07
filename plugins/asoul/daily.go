@@ -1,7 +1,6 @@
 package asoul
 
 import (
-	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	zero "github.com/wdvxdr1123/ZeroBot"
@@ -15,11 +14,9 @@ func init() {
 	engine.OnKeyword("日程表").
 		Handle(func(ctx *zero.Ctx) {
 			url := getDynamic()
-			if url == "" {
-				ctx.Send("值为空")
-			}
-
-			ctx.SendChain(message.Image(url))
+			ctx.SendChain(
+				message.Text(url),
+				message.Image(url))
 		})
 }
 
@@ -34,19 +31,14 @@ func getDynamic() string {
 	json := gjson.ParseBytes(data)
 
 	dy := json.Get("data.cards.#.card").Array()
-	for i, v := range dy {
-		if strings.Contains(v.Str, "日程表") {
-			if strings.Contains(dy[i].Str, "img_src") {
-				gi := dy[i].String()
-				fmt.Println(gi)
-				startStr := "\"img_src\":\""
-				endStr := "\",\"img_tags"
-				inurl := string([]byte(gi)[strings.Index(gi, startStr)+len(startStr) : strings.Index(gi, endStr)])
-				imurl := strings.ReplaceAll(inurl, "\\", "")
-				fmt.Println("TEST")
-				return imurl
-			}
+	for _, i := range dy {
+		if strings.Index(i.String(), "日程表") >= 0 {
+			org := (gjson.Parse(i.String()).Get("origin"))
+			pic := (gjson.Parse(org.String()).Get("item.pictures").Array())
+			return pic[0].Get("img_src").String()
+		} else {
+			return "Not found image"
 		}
 	}
-	return ""
+	return "unknown error"
 }

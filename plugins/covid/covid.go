@@ -3,24 +3,23 @@ package covid
 
 import (
 	"encoding/json"
-
-	zero "github.com/wdvxdr1123/ZeroBot"
-	"github.com/wdvxdr1123/ZeroBot/message"
-
-	"github.com/FloatTech/zbputils/binary"
 	"github.com/FloatTech/zbputils/control"
 	"github.com/FloatTech/zbputils/ctxext"
 	"github.com/FloatTech/zbputils/web"
+	zero "github.com/wdvxdr1123/ZeroBot"
+	"github.com/wdvxdr1123/ZeroBot/message"
 )
 
 const (
 	servicename = "covid"
-	txurl       = "https://view.inews.qq.com/g2/getOnsInfo?name=disease_h5"
+	txurl       = "https://api.inews.qq.com/newsqa/v1/query/inner/publish/modules/list?modules=statisGradeCityDetail,diseaseh5Shelf"
 )
 
 // result 疫情查询结果
 type result struct {
-	Data string `json:"data"`
+	Data struct {
+		Epidemic epidemic `json:"diseaseh5Shelf"`
+	} `json:"data"`
 }
 
 // epidemic 疫情数据
@@ -33,8 +32,8 @@ type epidemic struct {
 type area struct {
 	Name  string `json:"name"`
 	Today struct {
-		Confirm int `json:"confirm"`
-		Wzzadd  int `json:"wzz_add"`
+		Confirm int         `json:"confirm"`
+		Wzzadd  interface{} `json:"wzz_add"`
 	} `json:"today"`
 	Total struct {
 		NowConfirm int    `json:"nowConfirm"`
@@ -79,7 +78,7 @@ func init() {
 					"死亡人数：", data.Total.Dead, "\n",
 					"无症状人数：", data.Total.Wzz, "\n",
 					"新增无症状：", data.Today.Wzzadd, "\n",
-					"更新时间：『", time, "』",
+					"更新时间：\n『", time, "』",
 				),
 			)
 		})
@@ -116,11 +115,6 @@ func queryEpidemic(findCityName string) (citydata *area, times string, err error
 	if err != nil {
 		return
 	}
-	var e epidemic
-	err = json.Unmarshal(binary.StringToBytes(r.Data), &e)
-	if err != nil {
-		return
-	}
-	citydata = rcity(e.AreaTree[0], findCityName)
-	return citydata, e.LastUpdateTime, nil
+	citydata = rcity(r.Data.Epidemic.AreaTree[0], findCityName)
+	return citydata, r.Data.Epidemic.LastUpdateTime, nil
 }

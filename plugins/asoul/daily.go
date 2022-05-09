@@ -36,9 +36,7 @@ func getDynamic() string {
 			org := (gjson.Parse(i.String()).Get("origin"))
 			pic := (gjson.Parse(org.String()).Get("item.pictures").Array())
 			return pic[0].Get("img_src").String()
-		} else {
-			return "Not found image"
 		}
 	}
-	return "unknown error"
+	return "Not found image"
 }

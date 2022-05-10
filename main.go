@@ -12,6 +12,7 @@ import (
 	_ "github.com/Suika99/AsoulBot/plugins/asoul"
 	_ "github.com/Suika99/AsoulBot/plugins/bilibili"
 	_ "github.com/Suika99/AsoulBot/plugins/covid"
+	_ "github.com/Suika99/AsoulBot/plugins/dingzhen"
 	_ "github.com/Suika99/AsoulBot/plugins/emojimix"
 	_ "github.com/Suika99/AsoulBot/plugins/setu"
 

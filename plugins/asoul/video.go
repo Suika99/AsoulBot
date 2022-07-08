@@ -71,21 +71,6 @@ func init() {
 		})
 }
 
-func init() {
-	engine.OnKeyword("来点狼能量").
-		Handle(func(ctx *zero.Ctx) {
-			data := video(strconv.Itoa(carol))
-			rand.Seed(time.Now().UnixNano())
-			ranNub := rand.Intn(50)
-			ctx.SendChain(message.Image(data.Data.List.Vlist[ranNub].Pic))
-			ctx.SendChain(message.CustomMusic(
-				"https://bilibili.com/video/"+data.Data.List.Vlist[ranNub].Bvid,
-				"11111112355",
-				data.Data.List.Vlist[ranNub].Title,
-			))
-		})
-}
-
 func video(uid string) *vdInfo {
 	url := "https://api.bilibili.com/x/space/arc/search?&ps=50&pn=1&order=pubdate&mid=" + uid
 	method := "GET"
@@ -101,7 +86,7 @@ func video(uid string) *vdInfo {
 	defer res.Body.Close()
 	result := &vdInfo{}
 	if err := json.NewDecoder(res.Body).Decode(result); err != nil {
-		panic(err)
+		log.Error(err)
 	}
 	return result
 }

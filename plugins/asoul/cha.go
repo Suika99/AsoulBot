@@ -1,25 +1,31 @@
 package asoul
 
 import (
-	"encoding/json"
-	"errors"
+	"encoding/binary"
+	"fmt"
+	"image"
+	"image/color"
+	"os"
+	"path"
+	"sort"
+	"strconv"
+	"time"
+
+	"github.com/FloatTech/zbputils/file"
+	"github.com/FloatTech/zbputils/img"
+	"github.com/FloatTech/zbputils/img/text"
+	"github.com/FloatTech/zbputils/img/writer"
+	"github.com/fogleman/gg"
 	"github.com/jinzhu/gorm"
-	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
-	"github.com/tidwall/gjson"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"strings"
-	"time"
 )
 
 // 查成分的
 func init() {
 	// 插件主体,匹配用户名字
-	engine.OnRegex(`^/查\s(.{1,25})$`).SetBlock(true).
+	engine.OnRegex(`^查成分\s(.{1,25})$`).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			keyword := ctx.State["regex_matched"].([]string)[1]
 			rest, err := getMid(keyword)
@@ -29,144 +35,227 @@ func init() {
 			}
 			mid := rest.Get("data.result.0.mid").String()
 			info := getinfo(mid)
-			attentions := compared(info.Card.Attentions)
-			ctx.SendChain(message.Image(info.Card.Face),
-				message.Text(
-					"id: ", info.Card.Name, "\n",
-					"uid: ", info.Card.Mid, "\n",
-					"性别: ", info.Card.Sex, "\n",
-					"等级: ", info.Card.LevelInfo.CurrentLevel, "\n",
-					"关注数: ", info.Card.Attention, "\n",
-					"粉丝数: ", info.Card.Fans, "\n",
-					"使用装扮: ", info.Card.Pendant.Name, "\n",
-					"关注的vtb（共", len(attentions), "个）: ", "\n",
-					strings.Join(attentions, "，"),
-				))
-		})
-	// 插件主体,匹配用户uid
-	engine.OnRegex(`^/查UID:(.{1,25})$`).SetBlock(true).
-		Handle(func(ctx *zero.Ctx) {
-			keyword := ctx.State["regex_matched"].([]string)[1]
-			mid := keyword
-			info := getinfo(mid)
-			attentions := compared(info.Card.Attentions)
-			ctx.SendChain(message.Image(info.Card.Face),
-				message.Text(
-					"id: ", info.Card.Name, "\n",
-					"uid: ", info.Card.Mid, "\n",
-					"性别: ", info.Card.Sex, "\n",
-					"等级: ", info.Card.LevelInfo.CurrentLevel, "\n",
-					"关注数: ", info.Card.Attention, "\n",
-					"粉丝数: ", info.Card.Fans, "\n",
-					"使用装扮: ", info.Card.Pendant.Name, "\n",
-					"关注的vtb（共", len(attentions), "个）: ", "\n",
-					strings.Join(attentions, "，"),
-				))
+			attentions := info.Card.Attentions
+			picPath := renderImg(attentions, info)
+			ctx.SendChain(message.Image(picPath))
 		})
 }
 
-// 通过触发指令的名字获取用户的uid
-func getMid(keyword string) (gjson.Result, error) {
-	api := "http://api.bilibili.com/x/web-interface/search/type?search_type=bili_user&&user_type=1&keyword=" + keyword
-	resp, err := http.Get(api)
-	if err != nil {
-		return gjson.Result{}, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return gjson.Result{}, errors.New("code not 200")
-	}
-	data, _ := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	json := gjson.ParseBytes(data)
-	if json.Get("data.numResults").Int() == 0 {
-		return gjson.Result{}, errors.New("查无此人")
-	}
-	return json, nil
-}
-
-// 获取被查用户信息
-func getinfo(mid string) *follows {
-	url := "https://account.bilibili.com/api/member/getCardByMid?mid=" + mid
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Errorln(err)
-	}
-	defer resp.Body.Close()
-	result := &follows{}
-	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
-		log.Errorln(err)
-	}
-	return result
-}
-
-// 对比数据库获取关注用户的名字
-func compared(follows []int) []string {
-	var db *sqlx.DB
-	db, _ = sqlx.Open("sqlite3", dbfile)
-	defer db.Close()
-	query1, args, err := sqlx.In("select uname from vtbs where mid in (?)", follows)
-	if err != nil {
-		log.Errorln("[element]查找失败", err)
-	}
-	res := []string{}
-	err = db.Select(&res, query1, args...)
-	if err != nil {
-		log.Errorln("[element]查找失败", err)
-	}
-	return res
-}
-
-//首次启动初始化插件, 异步处理！！
-// 获取vtbs数据返回
-func init() {
-	go func() {
-		url := "https://api.vtbs.moe/v1/short"
-		method := "GET"
-		client := &http.Client{}
-		req, err := http.NewRequest(method, url, nil)
-		if err != nil {
-			log.Error("[Element]请求api失败", err)
+// 渲染图片
+func renderImg(attentions []int64, info *follows) (imgPath string) {
+	var err error
+	id := strconv.FormatInt(time.Now().Unix(), 10)
+	facePath := "data/cache/" + id + "vupFace" + path.Ext(info.Card.Face)
+	drawedFile := "data/cache/" + id + "vupLike.png"
+	vups, err := filterVup(attentions)
+	var as []vup
+	for _, v := range asoul {
+		for k, w := range vups {
+			if v == w.Mid {
+				as = append(as, w)
+				vups[k] = vups[len(vups)-1]
+				vups = vups[:len(vups)-1]
+			}
 		}
-		res, err := client.Do(req)
+	}
+
+	medals, err := medalwall(info.Card.Mid, cookie)
+	sort.Sort(medalSlice(medals))
+	if err != nil {
+		log.Errorln(err)
+	}
+	frontVups := make([]vup, 0)
+	medalMap := make(map[int64]medal)
+	for _, v := range medals {
+		up := vup{
+			Mid:   v.Mid,
+			Uname: v.Uname,
+		}
+		frontVups = append(frontVups, up)
+		medalMap[v.Mid] = v
+	}
+
+	backX := 500
+	backY := 400
+	var back image.Image
+	if path.Ext(info.Card.Face) != ".webp" {
+		err = initFacePic(facePath, info.Card.Face)
 		if err != nil {
-			log.Error("[Element]请求api失败")
+			log.Errorln("cha ERROR:", err)
 			return
 		}
-		defer res.Body.Close()
-		body, err := ioutil.ReadAll(res.Body)
+		back, err = gg.LoadImage(facePath)
 		if err != nil {
-			log.Errorln(err)
+			log.Errorln("cha ERROR:", err)
+			return
 		}
-		json := gjson.ParseBytes(body)
+		back = img.Size(back, backX, 500).Im
+	}
+	canvas := gg.NewContext(1300, int(450*(1.1+float64(len(vups)+len(as))/3)))
+	fontSize := 40.0
+	canvas.SetColor(color.White)
+	canvas.Clear()
+	if back != nil {
+		canvas.DrawImage(back, 0, 0)
+	}
+	canvas.SetColor(color.Black)
+	_, err = file.GetLazyData(text.BoldFontFile, true)
+	if err != nil {
+		log.Errorln("cha ERROR:", err)
+		return
+	}
+	if err = canvas.LoadFontFace(text.BoldFontFile, fontSize); err != nil {
+		log.Errorln("cha ERROR:", err)
+		return
+	}
 
-		if _, err = os.Stat(dbfile); err != nil || os.IsNotExist(err) {
-			// 生成文件
-			var err error
-			_ = os.MkdirAll(datapath, 0755)
-			f, err := os.Create(dbfile)
-			if err != nil {
-				log.Error("[Element]", err)
-			}
-			log.Infof("[Element]数据库文件(%v)创建成功", dbfile)
-			time.Sleep(1 * time.Second)
-			defer f.Close()
-			// 打开数据库制表
-			db, err := gorm.Open("sqlite3", dbfile)
-			if err != nil {
-				log.Errorln("[Element]打开数据库失败：", err)
-			}
-			db.AutoMigrate(vtbs{})
-			time.Sleep(1 * time.Second)
-			// 插入数据
-			for _, i := range json.Array() {
-				db.Create(&vtbs{
-					Mid:   i.Get("mid").Int(),
-					Uname: i.Get("uname").Str,
-					Rid:   i.Get("roomid").Int(),
-				})
-			}
-			log.Infof("[Element]vtbs更新完成，插入（%v）条数据", len(json.Array()))
-			defer db.Close()
+	sl, _ := canvas.MeasureString("好")
+	length, h := canvas.MeasureString(info.Card.Mid)
+	n, _ := canvas.MeasureString(info.Card.Name)
+	canvas.DrawString(info.Card.Name, 550, 100-h)
+	canvas.DrawRoundedRectangle(600+n-length*0.1, 100-h*2.5, length*1.2, h*2, fontSize*0.2)
+	canvas.SetRGB255(221, 221, 221)
+	canvas.Fill()
+	canvas.SetColor(color.Black)
+	canvas.DrawString(info.Card.Mid, 600+n, 100-h)
+	canvas.DrawString(fmt.Sprintf("关注：%d", info.Card.Attention), 550, 180-h)
+	canvas.DrawString(fmt.Sprintf("粉丝：%d", info.Card.Fans), 600+n, 180-h)
+	canvas.DrawString(fmt.Sprintf("关注vup数：%d", len(vups)+len(as)), 550, 260-h)
+	canvas.DrawString(fmt.Sprintf("使用装扮：%s", info.Card.Pendant.Name), 550, 340-h)
+	canvas.DrawString("注册日期："+time.Unix(info.Card.Regtime, 0).Format("2006-01-02 15:04:05"), 550, 420-h)
+	canvas.DrawString("查询日期："+time.Now().Format("2006-01-02"), 550, 500-h)
+	for i, v := range as {
+		canvas.SetColor(color.RGBA{231, 121, 176, 255})
+		nl, _ := canvas.MeasureString(v.Uname)
+		canvas.DrawString(v.Uname, float64(backX)*0.1, float64(backY)*1.4+float64(i+1)*float64(backY)/3-2*h)
+		ml, _ := canvas.MeasureString(strconv.FormatInt(v.Mid, 10))
+		canvas.DrawRoundedRectangle(nl-0.1*ml+float64(backX)*0.2, float64(backY)*1.4+float64(i+1)*float64(backY)/3-h*3.5, ml*1.2, h*2, fontSize*0.2)
+		canvas.SetRGB255(221, 221, 221)
+		canvas.Fill()
+		canvas.SetColor(color.RGBA{231, 121, 176, 255})
+		canvas.DrawString(strconv.FormatInt(v.Mid, 10), nl+float64(backX)*0.2, float64(backY)*1.4+float64(i+1)*float64(backY)/3-2*h)
+		if m, ok := medalMap[v.Mid]; ok {
+			mnl, _ := canvas.MeasureString(m.MedalName)
+			grad := gg.NewLinearGradient(nl+ml-sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1)*float64(backY)/3-3.5*h, nl+ml+mnl+sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1)*float64(backY)/3-1.5*h)
+			r, g, b := int2rbg(m.MedalColorStart)
+			grad.AddColorStop(0, color.RGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: 255})
+			r, g, b = int2rbg(m.MedalColorEnd)
+			grad.AddColorStop(1, color.RGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: 255})
+			canvas.SetFillStyle(grad)
+			canvas.SetLineWidth(4)
+			canvas.MoveTo(nl+ml-sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1)*float64(backY)/3-3.5*h)
+			canvas.LineTo(nl+ml+mnl+sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1)*float64(backY)/3-3.5*h)
+			canvas.LineTo(nl+ml+mnl+sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1)*float64(backY)/3-1.5*h)
+			canvas.LineTo(nl+ml-sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1)*float64(backY)/3-1.5*h)
+			canvas.ClosePath()
+			canvas.Fill()
+			canvas.SetColor(color.White)
+			canvas.DrawString(m.MedalName, nl+ml+float64(backX)*0.4, float64(backY)*1.4+float64(i+1)*float64(backY)/3-2*h)
+			r, g, b = int2rbg(m.MedalColorBorder)
+			canvas.SetRGB255(int(r), int(g), int(b))
+			canvas.DrawString(strconv.FormatInt(m.Level, 10), nl+ml+mnl+sl+float64(backX)*0.4, float64(backY)*1.4+float64(i+1)*float64(backY)/3-2*h)
+			mll, _ := canvas.MeasureString(strconv.FormatInt(m.Level, 10))
+			canvas.SetLineWidth(4)
+			canvas.MoveTo(nl+ml-sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1)*float64(backY)/3-3.5*h)
+			canvas.LineTo(nl+ml+mnl+mll+sl/2+float64(backX)*0.5, float64(backY)*1.4+float64(i+1)*float64(backY)/3-3.5*h)
+			canvas.LineTo(nl+ml+mnl+mll+sl/2+float64(backX)*0.5, float64(backY)*1.4+float64(i+1)*float64(backY)/3-1.5*h)
+			canvas.LineTo(nl+ml-sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1)*float64(backY)/3-1.5*h)
+			canvas.ClosePath()
+			canvas.Stroke()
 		}
-	}()
+	}
+
+	for i, v := range vups {
+		canvas.SetColor(color.Black)
+		nl, _ := canvas.MeasureString(v.Uname)
+		canvas.DrawString(v.Uname, float64(backX)*0.1, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-2*h)
+		ml, _ := canvas.MeasureString(strconv.FormatInt(v.Mid, 10))
+		canvas.DrawRoundedRectangle(nl-0.1*ml+float64(backX)*0.2, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-h*3.5, ml*1.2, h*2, fontSize*0.2)
+		canvas.SetRGB255(221, 221, 221)
+		canvas.Fill()
+		canvas.SetColor(color.Black)
+		canvas.DrawString(strconv.FormatInt(v.Mid, 10), nl+float64(backX)*0.2, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-2*h)
+		if m, ok := medalMap[v.Mid]; ok {
+			mnl, _ := canvas.MeasureString(m.MedalName)
+			grad := gg.NewLinearGradient(nl+ml-sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-3.5*h, nl+ml+mnl+sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-1.5*h)
+			r, g, b := int2rbg(m.MedalColorStart)
+			grad.AddColorStop(0, color.RGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: 255})
+			r, g, b = int2rbg(m.MedalColorEnd)
+			grad.AddColorStop(1, color.RGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: 255})
+			canvas.SetFillStyle(grad)
+			canvas.SetLineWidth(4)
+			canvas.MoveTo(nl+ml-sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-3.5*h)
+			canvas.LineTo(nl+ml+mnl+sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-3.5*h)
+			canvas.LineTo(nl+ml+mnl+sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-1.5*h)
+			canvas.LineTo(nl+ml-sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-1.5*h)
+			canvas.ClosePath()
+			canvas.Fill()
+			canvas.SetColor(color.White)
+			canvas.DrawString(m.MedalName, nl+ml+float64(backX)*0.4, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-2*h)
+			r, g, b = int2rbg(m.MedalColorBorder)
+			canvas.SetRGB255(int(r), int(g), int(b))
+			canvas.DrawString(strconv.FormatInt(m.Level, 10), nl+ml+mnl+sl+float64(backX)*0.4, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-2*h)
+			mll, _ := canvas.MeasureString(strconv.FormatInt(m.Level, 10))
+			canvas.SetLineWidth(4)
+			canvas.MoveTo(nl+ml-sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-3.5*h)
+			canvas.LineTo(nl+ml+mnl+mll+sl/2+float64(backX)*0.5, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-3.5*h)
+			canvas.LineTo(nl+ml+mnl+mll+sl/2+float64(backX)*0.5, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-1.5*h)
+			canvas.LineTo(nl+ml-sl/2+float64(backX)*0.4, float64(backY)*1.4+float64(i+1+len(as))*float64(backY)/3-1.5*h)
+			canvas.ClosePath()
+			canvas.Stroke()
+		}
+	}
+
+	f, err := os.Create(drawedFile)
+	if err != nil {
+		log.Errorln("cha ERROR:", err)
+		data, cl := writer.ToBytes(canvas.Image())
+		fmt.Println(data)
+		cl()
+	}
+
+	_, err = writer.WriteTo(canvas.Image(), f)
+	_ = f.Close()
+	if err != nil {
+		log.Errorln("cha ERROR:", err)
+		return
+	}
+
+	imgPath = "file:///" + file.BOTPATH + "/" + drawedFile
+	return imgPath
+}
+
+// 牌子数据处理
+type medalSlice []medal
+
+func (m medalSlice) Len() int {
+	return len(m)
+}
+func (m medalSlice) Swap(i, j int) {
+	m[i], m[j] = m[j], m[i]
+}
+func (m medalSlice) Less(i, j int) bool {
+	return m[i].Level > m[j].Level
+}
+
+// filterVup 筛选vup
+func filterVup(ids []int64) (vups []vup, err error) {
+	db, err := gorm.Open("sqlite3", dbfile)
+	if err != nil {
+		log.Errorln("[Element]打开数据库失败：", err)
+	}
+	if err = db.Model(&vup{}).Find(&vups, "mid in (?)", ids).Error; err != nil {
+		return vups, err
+	}
+
+	defer db.Close()
+	return
+}
+
+// 转换颜色rbg
+func int2rbg(t int64) (int64, int64, int64) {
+	var buf [8]byte
+	binary.LittleEndian.PutUint64(buf[:], uint64(t))
+	b, g, r := int64(buf[0]), int64(buf[1]), int64(buf[2])
+	return r, g, b
 }

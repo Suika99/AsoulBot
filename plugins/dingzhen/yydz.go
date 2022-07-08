@@ -2,7 +2,6 @@ package dingzhen
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/FloatTech/zbputils/control"
 	log "github.com/sirupsen/logrus"
 	zero "github.com/wdvxdr1123/ZeroBot"
@@ -43,7 +42,6 @@ func getImage() string {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		log.Errorln(err)
 	}
-	fmt.Println(result)
 	image := url + result[0].Picpath.PicPath
 	return image
 }

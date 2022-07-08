@@ -2,6 +2,7 @@ package asoul
 
 import (
 	"encoding/json"
+	log "github.com/sirupsen/logrus"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
 	"net/http"
@@ -35,12 +36,12 @@ func fansapi(uid string) *follower {
 	url := "https://api.vtbs.moe/v1/detail/" + uid
 	resp, err := http.Get(url)
 	if err != nil {
-		panic(err)
+		log.Errorln(err)
 	}
 	defer resp.Body.Close()
 	result := &follower{}
 	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
-		panic(err)
+		log.Errorln(err)
 	}
 	return result
 }

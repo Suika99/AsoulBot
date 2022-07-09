@@ -100,7 +100,7 @@ var (
 	LittleEndian  littleEndian
 	asoul         = []int64{672328094, 672346917, 672353429, 672342685}
 	cookie        = "添加自己的cookie"
-// 	errNeedCookie = errors.New("该api需要设置b站cookie，去plugin/asoul/config.go文件里加")
+ 	errNeedCookie = errors.New("该api需要设置b站cookie，去plugin/asoul/config.go文件里加")
 	engine        = control.Register("asoul", &control.Options{
 		DisableOnDefault: false,
 		Help: "=======asoul相关功能=======\n" +

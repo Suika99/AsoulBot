@@ -38,18 +38,21 @@ func init() {
 			attentions := info.Card.Attentions
 			picPath := renderImg(attentions, info)
 			ctx.SendChain(message.Image(picPath))
+			//msgid := ctx.Event.MessageID
+			ctx.DeleteMessage(ctx.Event.MessageID.(message.MessageID))
+
 		})
 }
 
 // 渲染图片
 func renderImg(attentions []int64, info *follows) (imgPath string) {
 	var err error
-	id := strconv.FormatInt(time.Now().Unix(), 10)
+	id := info.Card.Mid
 	facePath := "data/cache/" + id + "vupFace" + path.Ext(info.Card.Face)
 	drawedFile := "data/cache/" + id + "vupLike.png"
 	vups, err := filterVup(attentions)
 	var as []vup
-	for _, v := range asoul {
+	for _, v := range Asoul {
 		for k, w := range vups {
 			if v == w.Mid {
 				as = append(as, w)
@@ -120,7 +123,7 @@ func renderImg(attentions []int64, info *follows) (imgPath string) {
 	canvas.DrawString(info.Card.Mid, 600+n, 100-h)
 	canvas.DrawString(fmt.Sprintf("关注：%d", info.Card.Attention), 550, 180-h)
 	canvas.DrawString(fmt.Sprintf("粉丝：%d", info.Card.Fans), 600+n, 180-h)
-	canvas.DrawString(fmt.Sprintf("关注vup数：%d", len(vups)+len(as)), 550, 260-h)
+	canvas.DrawString(fmt.Sprintf("关注vup：%d", len(vups)+len(as)), 550, 260-h)
 	canvas.DrawString(fmt.Sprintf("使用装扮：%s", info.Card.Pendant.Name), 550, 340-h)
 	canvas.DrawString("注册日期："+time.Unix(info.Card.Regtime, 0).Format("2006-01-02 15:04:05"), 550, 420-h)
 	canvas.DrawString("查询日期："+time.Now().Format("2006-01-02"), 550, 500-h)
@@ -258,4 +261,40 @@ func int2rbg(t int64) (int64, int64, int64) {
 	binary.LittleEndian.PutUint64(buf[:], uint64(t))
 	b, g, r := int64(buf[0]), int64(buf[1]), int64(buf[2])
 	return r, g, b
+}
+
+// 获取vups数据入库
+func init() {
+	go func() {
+		var err error
+		if _, err = os.Stat(dbfile); err != nil || os.IsNotExist(err) {
+			// 生成文件
+			_ = os.MkdirAll(datapath, 0755)
+			f, err := os.Create(dbfile)
+			if err != nil {
+				log.Error("[Element]", err)
+			}
+			log.Infof("[Element]数据库文件(%v)创建成功", dbfile)
+			time.Sleep(1 * time.Second)
+			defer f.Close()
+			// 打开数据库制表
+			db, err := gorm.Open("sqlite3", dbfile)
+			if err != nil {
+				log.Errorln("[Element]打开数据库失败：", err)
+			}
+			db.AutoMigrate(vup{})
+			time.Sleep(1 * time.Second)
+			// 插入数据
+			vupsData := getVupsData()
+			for _, i := range vupsData.Array() {
+				db.Create(&vup{
+					Mid:    i.Get("mid").Int(),
+					Uname:  i.Get("uname").Str,
+					Roomid: i.Get("roomid").Int(),
+				})
+			}
+			log.Infof("[Element]vtbs更新完成，插入（%v）条数据", len(vupsData.Array()))
+			defer db.Close()
+		}
+	}()
 }

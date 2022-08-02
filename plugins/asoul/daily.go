@@ -1,42 +1,24 @@
 package asoul
 
 import (
-	log "github.com/sirupsen/logrus"
-	"github.com/tidwall/gjson"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
-	"io/ioutil"
-	"net/http"
-	"strings"
 )
 
 func init() {
 	engine.OnKeyword("日程表").
 		Handle(func(ctx *zero.Ctx) {
-			url := getDynamic()
-			ctx.SendChain(
-				message.Text(url),
-				message.Image(url))
+			picUrl := getDynamic()
+			if len(picUrl) == 0 {
+				ctx.Send("image not found")
+				return
+			} else if len(picUrl) == 1 {
+				ctx.SendChain(message.Image(picUrl[0]))
+			} else if len(picUrl) == 2 {
+				ctx.SendChain(message.Image(picUrl[0]), message.Image(picUrl[1]))
+			} else {
+				ctx.Send("unknown error")
+				return
+			}
 		})
-}
-
-func getDynamic() string {
-	api := "https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid=703007996"
-	resp, err := http.Get(api)
-	if err != nil {
-		log.Error(err)
-	}
-	data, _ := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	json := gjson.ParseBytes(data)
-
-	dy := json.Get("data.cards.#.card").Array()
-	for _, i := range dy {
-		if strings.Index(i.String(), "日程表") >= 0 {
-			org := (gjson.Parse(i.String()).Get("origin"))
-			pic := (gjson.Parse(org.String()).Get("item.pictures").Array())
-			return pic[0].Get("img_src").String()
-		}
-	}
-	return "Not found image"
 }

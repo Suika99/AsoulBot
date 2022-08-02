@@ -3,17 +3,17 @@ package asoul
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/FloatTech/zbputils/binary"
 	"github.com/FloatTech/zbputils/file"
 	"github.com/FloatTech/zbputils/web"
-	"github.com/jinzhu/gorm"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"time"
+	"strings"
 )
 
 // 通过触发指令的名字获取用户的uid
@@ -59,7 +59,6 @@ func medalwall(uid string, cookie string) (result []medal, err error) {
 	if err != nil {
 		return
 	}
-	//c := vdb.getBilibiliCookie()
 	req.Header.Add("cookie", cookie)
 	res, err := client.Do(req)
 	if err != nil {
@@ -97,74 +96,86 @@ func initFacePic(filename, faceURL string) error {
 	return nil
 }
 
-// 首次启动初始化插件, 异步处理！！
-// 获取vtbs数据返回
-func init() {
-	go func() {
-		url := "https://api.vtbs.moe/v1/short"
-		method := "GET"
-		client := &http.Client{}
-		req, err := http.NewRequest(method, url, nil)
-		if err != nil {
-			log.Error("[Element]请求api失败", err)
-		}
-		res, err := client.Do(req)
-		if err != nil {
-			log.Error("[Element]请求api失败")
-			return
-		}
-		defer res.Body.Close()
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			log.Errorln(err)
-		}
-		json := gjson.ParseBytes(body)
-
-		if _, err = os.Stat(dbfile); err != nil || os.IsNotExist(err) {
-			// 生成文件
-			var err error
-			_ = os.MkdirAll(datapath, 0755)
-			f, err := os.Create(dbfile)
-			if err != nil {
-				log.Error("[Element]", err)
-			}
-			log.Infof("[Element]数据库文件(%v)创建成功", dbfile)
-			time.Sleep(1 * time.Second)
-			defer f.Close()
-			// 打开数据库制表
-			db, err := gorm.Open("sqlite3", dbfile)
-			if err != nil {
-				log.Errorln("[Element]打开数据库失败：", err)
-			}
-			db.AutoMigrate(vup{})
-			time.Sleep(1 * time.Second)
-			// 插入数据
-			for _, i := range json.Array() {
-				db.Create(&vup{
-					Mid:    i.Get("mid").Int(),
-					Uname:  i.Get("uname").Str,
-					Roomid: i.Get("roomid").Int(),
-				})
-			}
-			log.Infof("[Element]vtbs更新完成，插入（%v）条数据", len(json.Array()))
-			defer db.Close()
-		}
-	}()
+// 获取粉丝数据信息
+func fansapi(uid int) *follower {
+	url := fmt.Sprintf("https://api.vtbs.moe/v1/detail/%d", uid)
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Errorln(err)
+	}
+	defer resp.Body.Close()
+	result := &follower{}
+	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+		log.Errorln(err)
+	}
+	return result
 }
 
-// 对比数据库获取关注用户的名字
-//func compared(follows []int64) []string {
-//	var db *sqlx.DB
-//	db, _ = sqlx.Open("sqlite3", dbfile)
-//	defer db.Close()
-//	query1, args, err := sqlx.In("select uname from vtbs where mid in (?)", follows)
-//	if err != nil {
-//		log.Errorln("[element]查找失败", err)
-//	}
-//	res := []string{}
-//	err = db.Select(&res, query1, args...)
-//	if err != nil {
-//		log.Errorln("[element]查找失败", err)
-//	}
-//	return res
-//}
+// 获取asoul视频投稿
+func getVideo(uid int) *vdInfo {
+	url := fmt.Sprintf("https://api.bilibili.com/x/space/arc/search?&ps=50&pn=1&order=pubdate&mid=%d", uid)
+	method := "GET"
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		log.Errorln("[video]", err)
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		log.Errorln("[video]", err)
+	}
+	defer res.Body.Close()
+	result := &vdInfo{}
+	if err := json.NewDecoder(res.Body).Decode(result); err != nil {
+		log.Error(err)
+	}
+	return result
+}
+
+// 获取日程表图片
+func getDynamic() (dynamicPic []string) {
+	api := "https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid=703007996"
+	resp, err := http.Get(api)
+	if err != nil {
+		log.Error(err)
+	}
+	data, _ := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	json := gjson.ParseBytes(data)
+
+	dy := json.Get("data.cards.#.card").Array()
+	for _, i := range dy {
+		fmt.Println(i)
+		if strings.Index(i.String(), "日程表") >= 0 {
+			org := (gjson.Parse(i.String()).Get("origin"))
+			pic := (gjson.Parse(org.String()).Get("item.pictures").Array())
+			for _, u := range pic {
+				dynamicPic = append(dynamicPic, u.Get("img_src").String())
+			}
+			return dynamicPic
+		}
+	}
+	return dynamicPic
+}
+
+// 获取vups数据
+func getVupsData() gjson.Result {
+	url := "https://api.vtbs.moe/v1/short"
+	method := "GET"
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		log.Error("[Element]请求api失败", err)
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		log.Error("[Element]请求api失败")
+	}
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Errorln(err)
+	}
+	vupsData := gjson.ParseBytes(body)
+	return vupsData
+}

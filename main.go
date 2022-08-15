@@ -12,10 +12,13 @@ import (
 	_ "github.com/Suika99/AsoulBot/plugins/asoul"
 	_ "github.com/Suika99/AsoulBot/plugins/bilibili"
 	_ "github.com/Suika99/AsoulBot/plugins/covid"
+	_ "github.com/Suika99/AsoulBot/plugins/emo"
 	_ "github.com/Suika99/AsoulBot/plugins/emojimix"
+	_ "github.com/Suika99/AsoulBot/plugins/manager"
+	_ "github.com/Suika99/AsoulBot/plugins/minecraft"
+	_ "github.com/Suika99/AsoulBot/plugins/music"
 	_ "github.com/Suika99/AsoulBot/plugins/nativesetu"
 	_ "github.com/Suika99/AsoulBot/plugins/setu"
-	//_ "github.com/Suika99/AsoulBot/plugins/dingzhen"
 
 	// -----------------------以下为内置依赖，勿动------------------------ //
 	"github.com/FloatTech/zbputils/process"

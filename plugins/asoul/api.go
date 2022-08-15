@@ -145,10 +145,9 @@ func getDynamic() (dynamicPic []string) {
 
 	dy := json.Get("data.cards.#.card").Array()
 	for _, i := range dy {
-		fmt.Println(i)
 		if strings.Index(i.String(), "日程表") >= 0 {
-			org := (gjson.Parse(i.String()).Get("origin"))
-			pic := (gjson.Parse(org.String()).Get("item.pictures").Array())
+			//org := (gjson.Parse(i.String()).Get("item.description"))
+			pic := (gjson.Parse(i.String()).Get("item.pictures").Array())
 			for _, u := range pic {
 				dynamicPic = append(dynamicPic, u.Get("img_src").String())
 			}

@@ -122,7 +122,7 @@ func rAsoulImage() (asoulFansImg string) {
 		ava    = fansapi(ava)
 		eileen = fansapi(eileen)
 		bella  = fansapi(bella)
-		asoul  = fansapi(asoul)
+		asoul  = fansapi(703007996)
 	)
 	var err error
 	fontSize := 80.0

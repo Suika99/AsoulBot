@@ -1,20 +1,17 @@
 package asoul
 
 import (
-	"encoding/json"
-	log "github.com/sirupsen/logrus"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
 	"math/rand"
-	"net/http"
-	"strconv"
 	"time"
 )
 
+// 烂写，refactor
 func init() {
 	engine.OnKeyword("来点然能量").
 		Handle(func(ctx *zero.Ctx) {
-			data := video(strconv.Itoa(diana))
+			data := getVideo(diana)
 			rand.Seed(time.Now().UnixNano())
 			ranNub := rand.Intn(50)
 			ctx.SendChain(message.Image(data.Data.List.Vlist[ranNub].Pic))
@@ -29,7 +26,7 @@ func init() {
 func init() {
 	engine.OnKeyword("来点晚能量").
 		Handle(func(ctx *zero.Ctx) {
-			data := video(strconv.Itoa(ava))
+			data := getVideo(ava)
 			rand.Seed(time.Now().UnixNano())
 			ranNub := rand.Intn(50)
 			ctx.SendChain(message.Image(data.Data.List.Vlist[ranNub].Pic))
@@ -44,7 +41,7 @@ func init() {
 func init() {
 	engine.OnKeyword("来点牛能量").
 		Handle(func(ctx *zero.Ctx) {
-			data := video(strconv.Itoa(kira))
+			data := getVideo(bella)
 			rand.Seed(time.Now().UnixNano())
 			ranNub := rand.Intn(50)
 			ctx.SendChain(message.Image(data.Data.List.Vlist[ranNub].Pic))
@@ -59,7 +56,7 @@ func init() {
 func init() {
 	engine.OnKeyword("来点乃能量").
 		Handle(func(ctx *zero.Ctx) {
-			data := video(strconv.Itoa(queen))
+			data := getVideo(eileen)
 			rand.Seed(time.Now().UnixNano())
 			ranNub := rand.Intn(50)
 			ctx.SendChain(message.Image(data.Data.List.Vlist[ranNub].Pic))
@@ -69,24 +66,4 @@ func init() {
 				data.Data.List.Vlist[ranNub].Title,
 			))
 		})
-}
-
-func video(uid string) *vdInfo {
-	url := "https://api.bilibili.com/x/space/arc/search?&ps=50&pn=1&order=pubdate&mid=" + uid
-	method := "GET"
-	client := &http.Client{}
-	req, err := http.NewRequest(method, url, nil)
-	if err != nil {
-		log.Errorln("[video]", err)
-	}
-	res, err := client.Do(req)
-	if err != nil {
-		log.Errorln("[video]", err)
-	}
-	defer res.Body.Close()
-	result := &vdInfo{}
-	if err := json.NewDecoder(res.Body).Decode(result); err != nil {
-		log.Error(err)
-	}
-	return result
 }

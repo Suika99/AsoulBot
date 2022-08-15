@@ -122,7 +122,7 @@ func renderImg(attentions []int64, info *follows) (imgPath string) {
 	canvas.SetColor(color.Black)
 	canvas.DrawString(info.Card.Mid, 600+n, 100-h)
 	canvas.DrawString(fmt.Sprintf("关注：%d", info.Card.Attention), 550, 180-h)
-	canvas.DrawString(fmt.Sprintf("粉丝：%d", info.Card.Fans), 600+n, 180-h)
+	canvas.DrawString(fmt.Sprintf("粉丝：%d", info.Card.Fans), 650+n, 180-h)
 	canvas.DrawString(fmt.Sprintf("关注vup：%d", len(vups)+len(as)), 550, 260-h)
 	canvas.DrawString(fmt.Sprintf("使用装扮：%s", info.Card.Pendant.Name), 550, 340-h)
 	canvas.DrawString("注册日期："+time.Unix(info.Card.Regtime, 0).Format("2006-01-02 15:04:05"), 550, 420-h)

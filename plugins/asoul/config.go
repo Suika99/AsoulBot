@@ -41,6 +41,7 @@ type follows struct {
 type follower struct {
 	Mid      int    `json:"mid"`
 	Uname    string `json:"uname"`
+	Face     string `json:"face"`
 	Video    int    `json:"video"`
 	Roomid   int    `json:"roomid"`
 	Rise     int    `json:"rise"`
@@ -90,15 +91,15 @@ type vup struct {
 const (
 	diana    = 672328094
 	ava      = 672346917
-	kira     = 672353429
-	queen    = 672342685
+	bella    = 672353429
+	eileen   = 672342685
 	datapath = "data/vtbs/"
 	dbfile   = datapath + "vup.db"
 )
 
 var (
 	LittleEndian  littleEndian
-	asoul         = []int64{672328094, 672346917, 672353429, 672342685}
+	Asoul         = []int64{672328094, 672346917, 672353429, 672342685}
 	cookie        = "_uuid=9C533C58-92103-D238-C6F7-DB427E2492DD08771infoc; buvid3=D224246E-4D43-4A41-9371-789AAFCE8D59167638infoc; b_nut=1641285109; rpdid=|(kmJYRuumYR0J'uYRuJY)klY; buvid4=D0B36D56-FB05-4A1D-CA4A-6194E92BFD3518669-022020812-Hv0N1ZTLOoipgbP9gUsRyQ%3D%3D; CURRENT_FNVAL=4048; fingerprint=15865356dc2b14e5e1dab341b8af2ed2; buvid_fp_plain=undefined; buvid_fp=1ca8d1bb83d616039b6657f6ea74fd32; SESSDATA=359149b0%2C1660551200%2Ca6ade%2A21; bili_jct=9191c1bac641cc8cb640dc16757b42d3; DedeUserID=1306274; DedeUserID__ckMd5=1f2dd48dfa071812; sid=aubhtwi7; i-wanna-go-back=-1; b_ut=5; LIVE_BUVID=AUTO2016449992304388; PVID=1; CURRENT_BLACKGAP=0; blackside_state=0; bp_video_offset_1306274=676678028957319200; innersign=0; b_lsid=79357B12_181DCD03319; b_timer=%7B%22ffp%22%3A%7B%22333.1007.fp.risk_D224246E%22%3A%22181DCD03565%22%7D%7D"
 	errNeedCookie = errors.New("该api需要设置b站cookie，请发送命令设置cookie，例如\"设置b站cookie SESSDATA=82da790d,1663822823,06ecf*31\"")
 	engine        = control.Register("asoul", &control.Options{

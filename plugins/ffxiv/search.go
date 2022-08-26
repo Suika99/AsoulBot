@@ -12,8 +12,8 @@ func init() {
 		Handle(func(ctx *zero.Ctx) {
 			keyword := ctx.State["regex_matched"].([]string)[1]
 			results := getSearch(keyword)
-			if results.Indexes == nil {
-				ctx.Send("未搜索到结果")
+			if len(results.Raw) == 2 {
+				ctx.Send("未搜索到结果123")
 				return
 			}
 

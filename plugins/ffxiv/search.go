@@ -11,7 +11,7 @@ func init() {
 	engine.OnRegex(`^s\s(.{1,25})$`).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			keyword := ctx.State["regex_matched"].([]string)[1]
-			results := getSearch(keyword)
+			results := getCafeSearch(keyword)
 			if len(results.Raw) == 2 {
 				ctx.Send("未搜索到结果123")
 				return

@@ -9,9 +9,11 @@ import (
 	"github.com/FloatTech/zbputils/web"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
+	"github.com/wdvxdr1123/ZeroBot/message"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -177,4 +179,16 @@ func getVupsData() gjson.Result {
 	}
 	vupsData := gjson.ParseBytes(body)
 	return vupsData
+}
+
+// cloud163 返回网易云音乐卡片
+func cloud163(keyword string) (msg message.MessageSegment) {
+	requestURL := "https://music.cyrilstudio.top/search?keywords=" + url.QueryEscape(keyword)
+	data, err := web.GetData(requestURL)
+	if err != nil {
+		msg = message.Text("ERROR:", err)
+		return
+	}
+	msg = message.Music("163", gjson.ParseBytes(data).Get("result.songs.0.id").Int())
+	return
 }

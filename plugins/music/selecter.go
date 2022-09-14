@@ -29,7 +29,7 @@ func init() {
 			"- 酷我点歌[xxx]\n" +
 			"- 酷狗点歌[xxx]",
 	})
-	engine.OnRegex(`^(.{0,2})向晚\s?(.{1,25})$`).SetBlock(true).Limit(ctxext.LimitByUser).
+	engine.OnRegex(`^(.{0,2})点歌\s?(.{1,25})$`).SetBlock(true).Limit(ctxext.LimitByUser).
 		Handle(func(ctx *zero.Ctx) {
 			// switch 平台
 			switch ctx.State["regex_matched"].([]string)[1] {
@@ -40,24 +40,10 @@ func init() {
 			case "网易":
 				ctx.SendChain(cloud163(ctx.State["regex_matched"].([]string)[2]))
 			default: // 默认 网易云
-				ctx.SendChain(cloud163(ctx.State["regex_matched"].([]string)[2] + " 向晚"))
+				ctx.SendChain(cloud163(ctx.State["regex_matched"].([]string)[2]))
 			}
 		})
 
-	engine.OnRegex(`^(.{0,2})嘉然\s?(.{1,25})$`).SetBlock(true).Limit(ctxext.LimitByUser).
-		Handle(func(ctx *zero.Ctx) {
-			// switch 平台
-			switch ctx.State["regex_matched"].([]string)[1] {
-			case "酷我":
-				ctx.SendChain(kuwo(ctx.State["regex_matched"].([]string)[2]))
-			case "酷狗":
-				ctx.SendChain(kugou(ctx.State["regex_matched"].([]string)[2]))
-			case "网易":
-				ctx.SendChain(cloud163(ctx.State["regex_matched"].([]string)[2]))
-			default: // 默认 网易云
-				ctx.SendChain(cloud163(ctx.State["regex_matched"].([]string)[2] + " 嘉然"))
-			}
-		})
 }
 
 // kuwo 返回酷我音乐卡片
